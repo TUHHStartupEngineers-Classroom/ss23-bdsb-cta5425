@@ -1,0 +1,127 @@
+---
+title: "Challenge 1: Tidyverse"
+author: "Mohamed, Islam"
+matriculation number: "21650912"
+---
+
+# Challenge 1: 
+## Analyze the sales by location with a bar plot.
+
+
+```{r}
+# Loading libraries ----
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library("writexl")
+# Importing Files ----
+bikes_tbl      <- read_excel(path = "../Data/Data_bikes/01_bike_sales/01_raw_data/bikes.xlsx")
+orderlines_tbl <- read_excel("../Data/Data_bikes/01_bike_sales/01_raw_data/orderlines.xlsx")
+bikeshops_tbl  <- read_excel("../Data/Data_bikes/01_bike_sales/01_raw_data/bikeshops.xlsx")
+
+# Joining/connecting Data ----
+bike_orderlines_joined_tbl <- orderlines_tbl %>% 
+  left_join(bikes_tbl, by =c("product.id"="bike.id")) %>%
+  left_join(bikeshops_tbl, by =c("customer.id"="bikeshop.id"))
+
+# Data Wrangling ----
+
+bike_state_wrangled_tbl <- bike_orderlines_joined_tbl%>%
+  separate(col=location,
+           into= c("city","state"),
+           sep= ",")%>%
+  mutate(total.price= price * quantity)%>%
+  select(-...1, -gender)%>%
+  select(order.id,city,state,order.date, total.price, contains("model"),
+         contains("category"), price, quantity, everything()) %>%
+  rename(bikeshop = name) %>%
+  set_names(names(.) %>% str_replace_all("\\.", "_"))
+
+  
+
+# Business Analysis ----
+# Sales by Location/State ----
+
+# Data Manipulation
+
+state_sales <- bike_state_wrangled_tbl%>%
+  select(state,total_price)%>%
+  group_by(state)%>%
+  summarize(sales=sum(total_price))%>%
+  mutate(sales_text = scales::dollar(sales, big.mark = ".", 
+                                     decimal.mark = ",", 
+                                     prefix = "", 
+                                     suffix = " €"))
+# Data visualization
+state_sales %>%
+  ggplot(aes(x = state, y = sales)) +
+  geom_col(fill = "#d6902d") + # Use geom_col for a bar plot
+  geom_label(aes(label = sales_text), vjust = -0.5, angle = 180) + # Adding labels to the bars vertically
+  geom_smooth(method = "lm", se = FALSE) + # trendline
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  + 
+  # Formatting plot
+  scale_y_continuous(labels = scales::dollar_format(big.mark = ".", 
+                                                    decimal.mark = ",", 
+                                                    prefix = "", 
+                                                    suffix = " €")) +
+  labs(
+    title = "Revenue by States",
+    x = "States",
+    y = "Revenue"
+  )
+```
+
+
+### Which state has the highest revenue?
+
+The state **"North Rhine-Westphalia"** has the highest revenue.
+
+# Challenge
+
+## Analyze the sales by location and year. 
+
+
+```{r}
+# Sales by Location and Year----
+
+# Data Manipulation
+sales_by_location_year <- bike_state_wrangled_tbl %>%
+  
+  # Enriching columns by adding a year column
+  select(order_date, total_price,state) %>%
+  mutate(year = year(order_date)) %>%
+  
+  # Group by and summarize year and state
+  group_by(year,state) %>%
+  summarise(sales = sum(total_price)) %>%
+  ungroup() %>%
+  
+  # Format $ Text
+  mutate(sales_text = scales::dollar(sales, big.mark = ".", 
+                                     decimal.mark = ",", 
+                                     prefix = "", 
+                                     suffix = " €"))
+
+# Visualization
+sales_by_location_year %>%
+  
+  # Set up x, y, fill
+  ggplot(aes(x = year, y = sales, fill = state)) +
+  
+  # Geometries
+  geom_col() + # Run up to here to get a stacked bar plot
+  
+  # Facet
+  facet_wrap(~ state) +
+  
+  # Formatting
+  scale_y_continuous(labels = scales::dollar_format(big.mark = ".", 
+                                                    decimal.mark = ",", 
+                                                    prefix = "", 
+                                                    suffix = " €")) +
+  labs(
+    title = "Revenue by year and State",
+    fill = "States" # Changes the legend name
+  )
+```
+
